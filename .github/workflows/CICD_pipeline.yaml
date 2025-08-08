@@ -16,26 +16,24 @@ jobs:
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          cat << 'EOF' > ~/.ssh/id_rsa
-          ${{ secrets.EC2_SSH_KEY }}
-          EOF
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
       - name: SSH and deploy
         run: |
-          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            set -e
-            mkdir -p ${{ secrets.EC2_APP_DIR }}
-            cd ${{ secrets.EC2_APP_DIR }}
-            if [ ! -d ".git" ]; then
-              git clone ${{ secrets.GIT_REPO_URL }} .
-            else
-              git reset --hard
-              git clean -fd
-              git pull origin main
-            fi
-            npm ci
-            npm run build
-            pm2 restart next-app || pm2 start npm --name "next-app" -- start
-            EOF
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          set -e
+          mkdir -p ${{ secrets.EC2_APP_DIR }}
+          cd ${{ secrets.EC2_APP_DIR }}
+          if [ ! -d ".git" ]; then
+            git clone ${{ secrets.GIT_REPO_URL }} .
+          else
+            git reset --hard
+            git clean -fd
+            git pull origin main
+          fi
+          npm ci
+          npm run build
+          pm2 restart next-app || pm2 start npm --name "next-app" -- start
+EOF
