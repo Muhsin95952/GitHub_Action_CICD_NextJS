@@ -1,36 +1,54 @@
-name: Deploy Next.js to EC2
+name: CI/CD Pipeline for Next.js
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout repo (for CI only, optional)
+        uses: actions/checkout@v3
 
-      - name: Setup SSH key
+      - name: Set up SSH key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: SSH and deploy
+      - name: Deploy to EC2
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "\
-            set -e && \
-            mkdir -p '${{ secrets.EC2_APP_DIR }}' && \
-            cd '${{ secrets.EC2_APP_DIR }}' && \
-            if [ ! -d .git ]; then \
-              git clone '${{ secrets.GIT_REPO_URL }}' .; \
-            else \
-              git reset --hard && git clean -fd && git pull origin main; \
-            fi && \
-            npm ci && \
-            npm run build && \
-            pm2 restart next-app || pm2 start npm --name 'next-app' -- start \
-          "
+          ssh ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e
+
+            APP_DIR="$HOME/my-app"
+
+            # Install dependencies if not present
+            if ! command -v git >/dev/null; then sudo apt update && sudo apt install -y git; fi
+            if ! command -v node >/dev/null; then curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - && sudo apt install -y nodejs; fi
+            if ! command -v pm2 >/dev/null; then sudo npm install -g pm2; fi
+
+            # Clone or update repo
+            if [ ! -d "$APP_DIR/.git" ]; then
+              rm -rf "$APP_DIR"
+              git clone git@github.com:USERNAME/REPO.git "$APP_DIR"
+            else
+              cd "$APP_DIR"
+              git reset --hard
+              git pull origin main
+            fi
+
+            # Install project dependencies & build Next.js app
+            cd "$APP_DIR"
+            npm install
+            npm run build
+
+            # Restart app with pm2
+            pm2 delete my-app || true
+            pm2 start npm --name "my-app" -- run start
+            pm2 save
+          EOF
