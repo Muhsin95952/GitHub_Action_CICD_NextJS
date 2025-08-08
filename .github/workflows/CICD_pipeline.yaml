@@ -25,7 +25,7 @@ jobs:
           ssh ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
 
-            APP_DIR="$HOME/my-app"
+            EC2_APP_DIR="$HOME/my-app"
 
             # Install dependencies if not present
             if ! command -v git >/dev/null; then sudo apt update && sudo apt install -y git; fi
@@ -33,17 +33,17 @@ jobs:
             if ! command -v pm2 >/dev/null; then sudo npm install -g pm2; fi
 
             # Clone or update repo
-            if [ ! -d "$APP_DIR/.git" ]; then
-              rm -rf "$APP_DIR"
-              git clone git@github.com:USERNAME/REPO.git "$APP_DIR"
+            if [ ! -d "$EC2_APP_DIR/.git" ]; then
+              rm -rf "$EC2_APP_DIR"
+              git clone git@github.com:Muhsin95952/GitHub_Action_CICD_NextJS.git "$EC2_APP_DIR"
             else
-              cd "$APP_DIR"
+              cd "$EC2_APP_DIR"
               git reset --hard
               git pull origin main
             fi
 
             # Install project dependencies & build Next.js app
-            cd "$APP_DIR"
+            cd "$EC2_APP_DIR"
             npm install
             npm run build
 
